@@ -56,10 +56,12 @@ class Trainer(BaseTrainer):
         self.fine_tune = config["trainer"].get("fine_tune", False)
         self.grad_accum_iters = config["trainer"].get("grad_accum_iters", 1)
         self.eval_start_iter = config["trainer"].get("eval_start_iter", 0)
-        self.scheduler_config = config["trainer"].get("scheduler", None)
-        if self.scheduler_config is not None:
-            self.scheduler_config["requires_loss"] = self.scheduler_config.get("requires_loss", False)
-            self.scheduler_config["epoch_based"] = self.scheduler_config.get("epoch_based", False)
+        self.scheduler_config = config["trainer"].get("scheduler", {
+            "requires_loss": False,
+            "epoch_based": False
+        })
+        self.scheduler_config["requires_loss"] = self.scheduler_config.get("requires_loss", False)
+        self.scheduler_config["epoch_based"] = self.scheduler_config.get("epoch_based", False)
         self.batch_expand_size = self.config["trainer"]["batch_expand_size"]
         self.waveglow = get_waveglow(self.config["trainer"]["waveglow_path"])
 
@@ -179,7 +181,7 @@ class Trainer(BaseTrainer):
 
         self._log_predictions(**batch)
 
-        if self.lr_scheduler is not None and self.scheduler_config is not None and self.scheduler_config["epoch_based"]:
+        if self.lr_scheduler is not None and self.scheduler_config["epoch_based"]:
             if self.scheduler_config["requires_loss"]:
                 if "val_loss" in log:
                     self.lr_scheduler.step(log["val_loss"])
@@ -204,7 +206,7 @@ class Trainer(BaseTrainer):
             if (batch_idx + 1) % self.grad_accum_iters == 0 or (batch_idx + 1) == self.len_epoch:
                 self._clip_grad_norm()
                 self.optimizer.step()
-                if self.lr_scheduler is not None and self.scheduler_config is not None and not self.scheduler_config["epoch_based"]:
+                if self.lr_scheduler is not None and not self.scheduler_config["epoch_based"]:
                     self.lr_scheduler.step()
                 self.train_metrics.update("grad norm", self.get_grad_norm())
                 self.optimizer.zero_grad()
