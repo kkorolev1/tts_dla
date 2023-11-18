@@ -11,9 +11,9 @@ def create_alignment(expand_max_len, duration_predictor_output):
         duration_predictor_output.size(0),
         expand_max_len,
         duration_predictor_output.size(1)
-    ))
+    ), device=duration_predictor_output.device)
     B, M, L = base_mat.shape
-    arange_tensor = torch.arange(M).view(1, 1, M)
+    arange_tensor = torch.arange(M, device=duration_predictor_output.device).view(1, 1, M)
 
     # Создаем матрицу индексов для каждого примера в батче
     index_matrix = torch.cumsum(duration_predictor_output, dim=1) - 1
