@@ -40,7 +40,7 @@ class FastSpeech2(BaseModel):
         self.energy_emb = nn.Embedding(kwargs["num_bins"], kwargs["encoder_dim"])
 
         self.decoder = Decoder(**kwargs)
-        self.mel_linear = nn.Linear(kwargs["decoder_dim"], kwargs["num_mels"], bias=False)
+        self.mel_linear = nn.Linear(kwargs["decoder_dim"], kwargs["num_mels"], bias=True)
     
     def mask_tensor(self, mel_output, position, mel_max_length):
         lengths = torch.max(position, -1)[0]
@@ -86,8 +86,8 @@ class FastSpeech2(BaseModel):
             energy_emb, energy_predictor_output = self.get_energy(len_reg_output, energy_target, gamma=gamma)
             output = len_reg_output + pitch_emb + energy_emb
             output = self.decoder(output, mel_pos)
-            output = self.mask_tensor(output, mel_pos, mel_max_length)
             output = self.mel_linear(output)
+            output = self.mask_tensor(output, mel_pos, mel_max_length)
             return {
                 "mel_output": output,
                 "duration_predictor_output": duration_predictor_output,
