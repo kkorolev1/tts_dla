@@ -21,7 +21,7 @@ def create_alignment(expand_max_len, duration_predictor_output):
 
     # Обновляем значения в base_mat
     base_mat.scatter_(1, index_matrix.transpose(1, 2), 1)
-    base_mat = base_mat - torch.concat((torch.zeros((B, M, 1)), base_mat[:, :, :-1]), dim=-1)
+    base_mat = base_mat - torch.concat((torch.zeros((B, M, 1), device=duration_predictor_output.device), base_mat[:, :, :-1]), dim=-1)
 
     return base_mat
 
