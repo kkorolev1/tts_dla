@@ -107,6 +107,9 @@ if __name__ == "__main__":
     options = [
         CustomArgs(["--lr", "--learning_rate"], type=float, target="optimizer;args;lr"),
         CustomArgs(
+            ["--n_gpu"], type=int, target="n_gpu"
+        ),
+        CustomArgs(
             ["--bs", "--batch_size"], type=int, target="data;train;batch_size"
         ),
         CustomArgs(
