@@ -62,8 +62,6 @@
   "lr_scheduler": {
     "type": "OneCycleLR",
     "args": {
-        "steps_per_epoch": 1000,
-        "epochs": 40,
         "anneal_strategy": "cos",
         "max_lr": 1e-3,
         "pct_start": 0.1
@@ -86,7 +84,7 @@
     "visualize": "wandb",
     "wandb_project": "tts_project",
     "wandb_run_name": "one_batch_test",
-    "len_epoch": 10,
+    "len_epoch": 3,
     "grad_norm_clip": 2,
     "batch_expand_size": 1,
     "waveglow_path": "waveglow/pretrained_model/waveglow_256channels.pt"
