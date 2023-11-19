@@ -12,20 +12,19 @@ class FastSpeech2Loss(nn.Module):
                 energy_target, pitch_target, **kwargs):
         mel_loss = F.mse_loss(mel_output, mel_target)
 
-        # we add 1 before log to avoid nan from zeros
         duration_predictor_loss = F.mse_loss(
             duration_predictor_output,
-            torch.log((length_target + 1).float())
-        ) # log(duration)
+            torch.log1p(length_target.float())
+        )
         
         energy_predictor_loss = F.mse_loss(
             energy_predictor_output,
-            torch.log(energy_target + 1)
+            torch.log1p(energy_target)
         )
 
         pitch_predictor_loss = F.mse_loss(
             pitch_predictor_output,
-            torch.log(pitch_target + 1)
+            torch.log1p(pitch_target)
         )
 
         return mel_loss, duration_predictor_loss, energy_predictor_loss, pitch_predictor_loss
