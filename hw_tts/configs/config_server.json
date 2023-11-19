@@ -45,8 +45,7 @@
             "alignment_path": "data/alignments",
             "pitch_path": "data/pitch",
             "energy_path": "data/energy",
-            "text_cleaners": ["english_cleaners"],
-            "limit": 5
+            "text_cleaners": ["english_cleaners"]
           }
         }
       ]
