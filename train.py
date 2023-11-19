@@ -49,12 +49,14 @@ def main(config):
         for metric_dict in config["metrics"]
     ]
 
+    logger.info(f'Len epoch {config["trainer"]["len_epoch"]}')
+    logger.info(f'Epochs {config["trainer"]["epochs"]}')
     # build optimizer, learning rate scheduler. delete every line containing lr_scheduler for
     # disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = config.init_obj(config["optimizer"], torch.optim, trainable_params)
     if "lr_scheduler" in config.config:
-        lr_scheduler = config.init_obj(config["lr_scheduler"], hw_tts.utils.lr_scheduler, optimizer)
+        lr_scheduler = config.init_obj(config["lr_scheduler"], hw_tts.utils.lr_scheduler, optimizer, steps_per_epoch=config["trainer"]["len_epoch"], epochs=config["trainer"]["epochs"])
     else:
         lr_scheduler = None
     trainer = Trainer(
