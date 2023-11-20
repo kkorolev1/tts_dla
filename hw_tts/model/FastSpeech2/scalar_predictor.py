@@ -46,8 +46,6 @@ class ScalarPredictor(nn.Module):
         out = self.linear_layer(encoder_output)
         out = self.relu(out)
         out = out.squeeze(-1)
-        if not self.training:
-            out = out.unsqueeze(0)
         return out
 
 

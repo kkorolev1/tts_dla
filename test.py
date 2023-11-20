@@ -4,27 +4,25 @@ import os
 from pathlib import Path
 
 import torch
+import torchaudio
 from tqdm import tqdm
 
 import hw_tts.model as module_model
-import hw_tts.metric as module_metric
 from hw_tts.trainer import Trainer
 from hw_tts.utils import ROOT_PATH
-from hw_tts.utils.object_loading import get_dataloaders
 from hw_tts.utils.parse_config import ConfigParser
-from hw_tts.utils import MetricTracker
+from hw_tts.text import text_to_sequence
+
+from waveglow import get_wav, get_waveglow
 
 DEFAULT_CHECKPOINT_PATH = ROOT_PATH / "default_test_model" / "checkpoint.pth"
 
 
-def main(config, out_file):
+def main(config, test_txt, waveglow_path, output_dir):
     logger = config.get_logger("test")
 
     # define cpu or gpu if possible
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # setup data_loader instances
-    dataloaders = get_dataloaders(config)
 
     # build model architecture
     model = config.init_obj(config["arch"], module_model)
@@ -38,32 +36,29 @@ def main(config, out_file):
     model.load_state_dict(state_dict)
 
     # prepare model for testing
-    print(device)
+    logger.info(f"Device {device}")
     model = model.to(device)
     model.eval()
 
-    metrics = [
-        config.init_obj(metric_dict, module_metric)
-        for metric_dict in config["metrics"]
-    ]
-    evaluation_metrics = MetricTracker(
-        *[m.name for m in metrics]
-    )
+    waveglow = get_waveglow(waveglow_path)
 
-    with torch.no_grad():
-        for batch_num, batch in enumerate(tqdm(dataloaders["test"])):
-            batch = Trainer.move_batch_to_device(batch, device)
-            output = model(**batch)
-            batch.update(output)
-            
-            for met in metrics:
-                evaluation_metrics.update(met.name, met(**batch))
+    os.makedirs(os.path.join(output_dir, "texts"), exist_ok=True)
+    os.makedirs(os.path.join(output_dir, "audio"), exist_ok=True)
 
+    with open(test_txt, "r") as f:
+        texts = [text.strip() for text in f.readlines()]
+    text_cleaners = ["english_cleaners"]    
+    tokenized_texts = [text_to_sequence(t, text_cleaners) for t in texts]
+    sampling_rate = 22050
 
-    results = evaluation_metrics.result()
-    with Path(out_file).open("w") as f:
-        json.dump(results, f, indent=2)
-
+    for i, (text, tokenized_text) in enumerate(zip(texts, tokenized_texts)):
+        src_seq = torch.tensor(tokenized_text, device=device).unsqueeze(0)
+        src_pos = torch.tensor([i + 1 for i in range(len(tokenized_text))], device=device).unsqueeze(0)
+        outputs = model(src_seq=src_seq, src_pos=src_pos)
+        wav = get_wav(outputs["mel_output"].transpose(1, 2), waveglow, sampling_rate=sampling_rate).unsqueeze(0)
+        with open(os.path.join(output_dir, "texts", f"{i+1}.txt"), "w") as f:
+            f.write(text)
+        torchaudio.save(os.path.join(output_dir, "audio", f"{i+1}.wav"), wav, sample_rate=sampling_rate)
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description="PyTorch Template")
@@ -89,25 +84,25 @@ if __name__ == "__main__":
         help="indices of GPUs to enable (default: all)",
     )
     args.add_argument(
-        "-o",
-        "--output",
-        default="output.json",
-        type=str,
-        help="File to write results (.json)",
-    )
-    args.add_argument(
         "-t",
-        "--test-data-folder",
-        default=None,
+        "--test-txt",
+        default="test.txt",
         type=str,
-        help="Path to dataset",
+        help="Path to test file with 3 sentences",
     )
     args.add_argument(
-        "-b",
-        "--batch-size",
-        default=20,
-        type=int,
-        help="Test dataset batch size",
+        "-o",
+        "--output-dir",
+        default="output",
+        type=str,
+        help="Output directory",
+    )
+    args.add_argument(
+        "-w",
+        "--waveglow-path",
+        default="waveglow/pretrained_model/waveglow_256channels.pt",
+        type=str,
+        help="Path to Waveglow weights",
     )
     args.add_argument(
         "-j",
@@ -135,29 +130,4 @@ if __name__ == "__main__":
         with Path(args.config).open() as f:
             config.config.update(json.load(f))
 
-    # if `--test-data-folder` was provided, set it as a default test set
-    if args.test_data_folder is not None:
-        test_data_folder = Path(args.test_data_folder).absolute().resolve()
-        assert test_data_folder.exists()
-        config.config["data"] = {
-            "test": {
-                "batch_size": args.batch_size,
-                "num_workers": args.jobs,
-                "datasets": [
-                    {
-                        "type": "CustomDirAudioDataset",
-                        "args": {
-                            "mix_dir": str(test_data_folder / "mix"),
-                            "ref_dir": str(test_data_folder / "refs"),
-                            "target_dir": str(test_data_folder / "targets")
-                        },
-                    }
-                ],
-            }
-        }
-
-    assert config.config.get("data", {}).get("test", None) is not None
-    config["data"]["test"]["batch_size"] = args.batch_size
-    config["data"]["test"]["n_jobs"] = args.jobs
-
-    main(config, args.output)
+    main(config, args.test_txt, args.waveglow_path, args.output_dir)

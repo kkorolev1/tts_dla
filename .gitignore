@@ -116,3 +116,5 @@ wandb/
 .idea/
 __MACOSX/
 *.pt
+*.wav
+output/texts/*.txt
