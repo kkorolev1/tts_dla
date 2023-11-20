@@ -195,13 +195,13 @@ class Trainer(BaseTrainer):
         batch = self.move_batch_to_device(batch, self.device)
         outputs = self.model(**batch)
         batch.update(outputs)
+        mel_loss, duration_loss, energy_loss, pitch_loss = self.criterion(**batch)
+        batch["mel_loss"] = mel_loss
+        batch["duration_loss"] = duration_loss
+        batch["energy_loss"] = energy_loss
+        batch["pitch_loss"] = pitch_loss
+        batch["loss"] = (mel_loss + duration_loss + energy_loss + pitch_loss) / self.grad_accum_iters
         if is_train:
-            mel_loss, duration_loss, energy_loss, pitch_loss = self.criterion(**batch)
-            batch["mel_loss"] = mel_loss
-            batch["duration_loss"] = duration_loss
-            batch["energy_loss"] = energy_loss
-            batch["pitch_loss"] = pitch_loss
-            batch["loss"] = (mel_loss + duration_loss + energy_loss + pitch_loss) / self.grad_accum_iters
             batch["loss"].backward()
             if (batch_idx + 1) % self.grad_accum_iters == 0 or (batch_idx + 1) == self.len_epoch:
                 self._clip_grad_norm()
@@ -211,9 +211,13 @@ class Trainer(BaseTrainer):
                 self.train_metrics.update("grad norm", self.get_grad_norm())
                 self.optimizer.zero_grad()
 
+        metrics.update("mel_loss", batch["mel_loss"].item())
+        metrics.update("duration_loss", batch["duration_loss"].item())
+        metrics.update("energy_loss", batch["energy_loss"].item())
+        metrics.update("pitch_loss", batch["pitch_loss"].item())
         metrics.update("loss", batch["loss"].item())
         for met in self.metrics:
-            metrics.update(met.name, met(**batch), n=batch["mix"].shape[0])
+            metrics.update(met.name, met(**batch))
         return batch
 
     def _evaluation_epoch(self, epoch, part, dataloader):
