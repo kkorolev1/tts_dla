@@ -47,18 +47,23 @@ def main(config, test_txt, waveglow_path, output_dir):
 
     with open(test_txt, "r") as f:
         texts = [text.strip() for text in f.readlines()]
-    text_cleaners = ["english_cleaners"]    
+    text_cleaners = ["english_cleaners"]
     tokenized_texts = [text_to_sequence(t, text_cleaners) for t in texts]
     sampling_rate = 22050
 
     for i, (text, tokenized_text) in enumerate(zip(texts, tokenized_texts)):
         src_seq = torch.tensor(tokenized_text, device=device).unsqueeze(0)
-        src_pos = torch.tensor([i + 1 for i in range(len(tokenized_text))], device=device).unsqueeze(0)
-        outputs = model(src_seq=src_seq, src_pos=src_pos)
-        wav = get_wav(outputs["mel_output"].transpose(1, 2), waveglow, sampling_rate=sampling_rate).unsqueeze(0)
+        src_pos = torch.tensor(
+            [i + 1 for i in range(len(tokenized_text))], device=device).unsqueeze(0)
+        outputs = model(src_seq=src_seq, src_pos=src_pos,
+                        gamma=1.5, beta=1, alpha=1)
+        wav = get_wav(outputs["mel_output"].transpose(
+            1, 2), waveglow, sampling_rate=sampling_rate).unsqueeze(0)
         with open(os.path.join(output_dir, "texts", f"{i+1}.txt"), "w") as f:
             f.write(text)
-        torchaudio.save(os.path.join(output_dir, "audio", f"{i+1}.wav"), wav, sample_rate=sampling_rate)
+        torchaudio.save(os.path.join(output_dir, "audio",
+                        f"{i+1}.wav"), wav, sample_rate=sampling_rate)
+
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser(description="PyTorch Template")
@@ -120,7 +125,7 @@ if __name__ == "__main__":
 
     # first, we need to obtain config with model parameters
     # we assume it is located with checkpoint in the same folder
-    #model_config = Path(args.resume).parent / "config_server.json"
+    # model_config = Path(args.resume).parent / "config_server.json"
     model_config = Path(args.config)
     with model_config.open() as f:
         config = ConfigParser(json.load(f), resume=args.resume)

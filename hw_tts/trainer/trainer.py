@@ -12,7 +12,9 @@ import os
 
 from hw_tts.base import BaseTrainer
 from hw_tts.utils import inf_loop, MetricTracker
+from hw_tts.text import text_to_sequence
 from waveglow import get_wav, get_waveglow
+
 
 class Trainer(BaseTrainer):
     """
@@ -178,8 +180,7 @@ class Trainer(BaseTrainer):
             if stop:
                 break
         log = last_train_metrics
-
-        self._log_predictions(**batch)
+        self._evaluation_epoch()
 
         if self.lr_scheduler is not None and self.scheduler_config["epoch_based"]:
             if self.scheduler_config["requires_loss"]:
@@ -220,7 +221,8 @@ class Trainer(BaseTrainer):
             metrics.update(met.name, met(**batch))
         return batch
 
-    def _evaluation_epoch(self, epoch, part, dataloader):
+    @torch.no_grad
+    def _evaluation_epoch(self):
         """
         Validate after training an epoch
 
@@ -228,27 +230,26 @@ class Trainer(BaseTrainer):
         :return: A log that contains information about validation
         """
         self.model.eval()
-        self.evaluation_metrics.reset()
-        with torch.no_grad():
-            for batch_idx, batch in tqdm(
-                    enumerate(dataloader),
-                    desc=part,
-                    total=len(dataloader),
-            ):
-                batch = self.process_batch(
-                    batch,
-                    batch_idx,
-                    is_train=False,
-                    metrics=self.evaluation_metrics,
-                )
-            self.writer.set_step(epoch * self.len_epoch, part)
-            self._log_scalars(self.evaluation_metrics)
-            self._log_predictions(**batch, is_train=False)
+        
+        texts = [
+            "A defibrillator is a device that gives a high energy electric shock to the heart of someone who is in cardiac arrest",
+            "Massachusetts Institute of Technology may be best known for its math, science and engineering education",
+            "Wasserstein distance or Kantorovich Rubinstein metric is a distance function defined between probability distributions on a given metric space"
+        ]
 
-        # add histogram of model parameters to the tensorboard
-        #for name, p in self.model.named_parameters():
-            #self.writer.add_histogram(name, p, bins="auto")
-        return self.evaluation_metrics.result()
+        text_cleaners = ["english_cleaners"]
+        tokenized_texts = [text_to_sequence(text, text_cleaners) for text in texts]
+
+        sampling_rate = 22050
+
+        for i, tokenized_text in enumerate(tokenized_texts):
+            src_seq = torch.tensor(tokenized_text, device=self.device).unsqueeze(0)
+            src_pos = torch.tensor(
+                [i + 1 for i in range(len(tokenized_text))], device=self.device).unsqueeze(0)
+            outputs = self.model(src_seq=src_seq, src_pos=src_pos)
+            wav = get_wav(outputs["mel_output"].transpose(
+                1, 2).to("cuda"), self.waveglow, sampling_rate=sampling_rate).unsqueeze(0)
+            self._log_audio(wav, sampling_rate, f"test_{i + 1}")
 
     def _progress(self, batch_idx):
         base = "[{}/{} ({:.0f}%)]"
