@@ -221,7 +221,7 @@ class Trainer(BaseTrainer):
             metrics.update(met.name, met(**batch))
         return batch
 
-    @torch.no_grad
+    @torch.no_grad()
     def _evaluation_epoch(self):
         """
         Validate after training an epoch
