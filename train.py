@@ -119,6 +119,9 @@ if __name__ == "__main__":
             ["--batch_expand_size"], type=int, target="trainer;batch_expand_size"
         ),
         CustomArgs(
+            ["--fine_tune"], type=int, target="trainer;fine_tune"
+        ),
+        CustomArgs(
             ["--len_epoch"], type=int, target="trainer;len_epoch"
         ),
         CustomArgs(
