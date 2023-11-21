@@ -62,7 +62,7 @@
     "type": "OneCycleLR",
     "args": {
         "anneal_strategy": "cos",
-        "max_lr": 5e-4,
+        "max_lr": 1e-3,
         "pct_start": 0.1
     }
   },

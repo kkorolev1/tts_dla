@@ -62,22 +62,17 @@ class MultiheadAttention(nn.Module):
 
         self.attention = ScaledDotProductAttention(temperature=self.head_dim ** 0.5)
         self.dropout = nn.Dropout(dropout)
+        self.prelayer_norm = nn.LayerNorm(embed_dim)
         self.layer_norm = nn.LayerNorm(embed_dim)
         
         self._reset_parameters()
-        nn.init.xavier_normal_(self.o_proj.weight)
 
-    # normal distribution initialization better than kaiming(default in pytorch)
     def _reset_parameters(self):
-        nn.init.normal_(self.q_proj.weight, mean=0,
-                        std=math.sqrt(2.0 / (self.embed_dim + self.head_dim)))
-        nn.init.normal_(self.k_proj.weight, mean=0,
-                        std=math.sqrt(2.0 / (self.embed_dim + self.head_dim)))
-        nn.init.normal_(self.v_proj.weight, mean=0,
-                        std=math.sqrt(2.0 / (self.embed_dim + self.head_dim))) 
-        self.q_proj.bias.data.fill_(0)
-        self.k_proj.bias.data.fill_(0)
-        self.v_proj.bias.data.fill_(0)
+            for layer in self.modules():
+                if isinstance(layer, nn.Linear):
+                    nn.init.xavier_uniform_(layer.weight)
+                    if layer.bias is not None:
+                        layer.bias.data.fill_(0)
 
     def forward(self, x, mask=None, return_attention=False):
         """
@@ -91,6 +86,7 @@ class MultiheadAttention(nn.Module):
         B is batch size, L is the length of sequence, D is the embedding dimension
         """
         batch_size, length = x.shape[0], x.shape[1]
+        x = self.prelayer_norm(x)
         query = self.q_proj(x).reshape(batch_size, length, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
         key = self.k_proj(x).reshape(batch_size, length, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
         value = self.v_proj(x).reshape(batch_size, length, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
