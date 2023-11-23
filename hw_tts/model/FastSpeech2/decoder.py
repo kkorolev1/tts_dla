@@ -23,14 +23,15 @@ class Decoder(nn.Module):
             num_heads=kwargs["decoder_head"],
             fft_conv1d_kernel=kwargs["fft_conv1d_kernel"],
             fft_conv1d_padding=kwargs["fft_conv1d_padding"],
-            dropout=kwargs["dropout"]
+            dropout=kwargs["dropout"],
+            attn_use_prelayer_norm=kwargs["attn_use_prelayer_norm"]
         ) for _ in range(kwargs["decoder_n_layer"])])
 
     def forward(self, enc_seq, enc_pos):
         # -- Prepare masks
         slf_attn_mask = get_attn_key_pad_mask(seq_k=enc_pos, seq_q=enc_pos)
         non_pad_mask = get_non_pad_mask(enc_pos)
-        
+
         # -- Forward
         dec_output = enc_seq + self.position_enc(enc_pos)
 
@@ -40,9 +41,9 @@ class Decoder(nn.Module):
                 non_pad_mask=non_pad_mask,
                 slf_attn_mask=slf_attn_mask
             )
-        
+
         return dec_output
-    
+
 # decoder = Decoder(256, 4, 5, 512, 500, 0, 0.1)
 # dummy = torch.randint(0, 500, (1, 4, 256))
 # dummy[0, 2:] = 0

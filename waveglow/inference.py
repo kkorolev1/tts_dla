@@ -51,16 +51,17 @@ def test_speed(mel, waveglow, sigma=1.0, sampling_rate=22050):
 def get_wav(mel, waveglow, sigma=1.0, sampling_rate=22050):
     with torch.no_grad():
         audio = waveglow.infer(mel, sigma=sigma)
-        #audio = audio * MAX_WAV_VALUE
+        # audio = audio * MAX_WAV_VALUE
     audio = audio.squeeze()
     audio = audio.cpu()
 
     return audio
 
-def get_waveglow(waveglow_path):
-    wave_glow = torch.load(waveglow_path)['model']
+
+def get_waveglow(waveglow_path, device="cuda"):
+    wave_glow = torch.load(waveglow_path, map_location=device)['model']
     wave_glow = wave_glow.remove_weightnorm(wave_glow)
-    wave_glow.cuda().eval()
+    wave_glow.eval()
     for m in wave_glow.modules():
         if 'Conv' in str(type(m)):
             setattr(m, 'padding_mode', 'zeros')

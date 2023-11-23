@@ -40,7 +40,7 @@ def main(config, test_txt, waveglow_path, output_dir):
     model = model.to(device)
     model.eval()
 
-    waveglow = get_waveglow(waveglow_path)
+    waveglow = get_waveglow(waveglow_path, device=device)
 
     os.makedirs(os.path.join(output_dir, "texts"), exist_ok=True)
     os.makedirs(os.path.join(output_dir, "audio"), exist_ok=True)
@@ -52,17 +52,19 @@ def main(config, test_txt, waveglow_path, output_dir):
     sampling_rate = 22050
 
     for i, (text, tokenized_text) in enumerate(zip(texts, tokenized_texts)):
-        src_seq = torch.tensor(tokenized_text, device=device).unsqueeze(0)
-        src_pos = torch.tensor(
-            [i + 1 for i in range(len(tokenized_text))], device=device).unsqueeze(0)
-        outputs = model(src_seq=src_seq, src_pos=src_pos,
-                        gamma=1.5, beta=1, alpha=1)
-        wav = get_wav(outputs["mel_output"].transpose(
-            1, 2), waveglow, sampling_rate=sampling_rate).unsqueeze(0)
         with open(os.path.join(output_dir, "texts", f"{i+1}.txt"), "w") as f:
             f.write(text)
-        torchaudio.save(os.path.join(output_dir, "audio",
-                        f"{i+1}.wav"), wav, sample_rate=sampling_rate)
+        for params in config["parameters_list"]:
+            src_seq = torch.tensor(tokenized_text, device=device).unsqueeze(0)
+            src_pos = torch.tensor(
+                [i + 1 for i in range(len(tokenized_text))], device=device).unsqueeze(0)
+            outputs = model(src_seq=src_seq, src_pos=src_pos,
+                            alpha=params[0], beta=params[1], gamma=params[2])
+            wav = get_wav(outputs["mel_output"].transpose(
+                1, 2), waveglow, sampling_rate=sampling_rate).unsqueeze(0)
+
+            torchaudio.save(os.path.join(output_dir, "audio",
+                            f"{i+1}_speed={params[0]}_pitch={params[1]}_energy={params[2]}.wav"), wav, sample_rate=sampling_rate)
 
 
 if __name__ == "__main__":

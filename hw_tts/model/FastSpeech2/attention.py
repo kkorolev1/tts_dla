@@ -11,6 +11,7 @@ class ScaledDotProductAttention(nn.Module):
         super().__init__()
         self.temperature = temperature
         self.dropout = nn.Dropout(attention_dropout)
+
     def forward(self, query, key, value, mask=None):
         """
         Args:
@@ -28,7 +29,8 @@ class ScaledDotProductAttention(nn.Module):
             query = query.unsqueeze(0).unsqueeze(0)
             key = key.unsqueeze(0).unsqueeze(0)
             value = value.unsqueeze(0).unsqueeze(0)
-        dot_products = torch.einsum("bhld,bhdm->bhlm", query, key.transpose(-2, -1)) / self.temperature
+        dot_products = torch.einsum(
+            "bhld,bhdm->bhlm", query, key.transpose(-2, -1)) / self.temperature
         if mask is not None:
             mask = mask.unsqueeze(1).expand(-1, query.shape[1], -1, -1)
             dot_products = dot_products.where(~mask, -1e9)
@@ -38,11 +40,11 @@ class ScaledDotProductAttention(nn.Module):
             res = res.squeeze(0).squeeze(0)
             attention = attention.squeeze(0).squeeze(0)
         return res, attention
-    
+
 
 class MultiheadAttention(nn.Module):
 
-    def __init__(self, embed_dim, num_heads, dropout):
+    def __init__(self, embed_dim, num_heads, dropout, attn_use_prelayer_norm=True):
         """
         Args:
             embed_dim: dimensionality of embedding (total)
@@ -60,19 +62,22 @@ class MultiheadAttention(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim)
         self.o_proj = nn.Linear(embed_dim, embed_dim)
 
-        self.attention = ScaledDotProductAttention(temperature=self.head_dim ** 0.5)
+        self.attention = ScaledDotProductAttention(
+            temperature=self.head_dim ** 0.5)
         self.dropout = nn.Dropout(dropout)
-        self.prelayer_norm = nn.LayerNorm(embed_dim)
+        self.attn_use_prelayer_norm = attn_use_prelayer_norm
+        if attn_use_prelayer_norm:
+            self.prelayer_norm = nn.LayerNorm(embed_dim)
         self.layer_norm = nn.LayerNorm(embed_dim)
-        
+
         self._reset_parameters()
 
     def _reset_parameters(self):
-            for layer in self.modules():
-                if isinstance(layer, nn.Linear):
-                    nn.init.xavier_uniform_(layer.weight)
-                    if layer.bias is not None:
-                        layer.bias.data.fill_(0)
+        for layer in self.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    layer.bias.data.fill_(0)
 
     def forward(self, x, mask=None, return_attention=False):
         """
@@ -86,12 +91,17 @@ class MultiheadAttention(nn.Module):
         B is batch size, L is the length of sequence, D is the embedding dimension
         """
         batch_size, length = x.shape[0], x.shape[1]
-        x = self.prelayer_norm(x)
-        query = self.q_proj(x).reshape(batch_size, length, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
-        key = self.k_proj(x).reshape(batch_size, length, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
-        value = self.v_proj(x).reshape(batch_size, length, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
+        if self.attn_use_prelayer_norm:
+            x = self.prelayer_norm(x)
+        query = self.q_proj(x).reshape(batch_size, length,
+                                       self.num_heads, self.head_dim).permute(0, 2, 1, 3)
+        key = self.k_proj(x).reshape(batch_size, length,
+                                     self.num_heads, self.head_dim).permute(0, 2, 1, 3)
+        value = self.v_proj(x).reshape(batch_size, length,
+                                       self.num_heads, self.head_dim).permute(0, 2, 1, 3)
         outputs, attention = self.attention(query, key, value, mask=mask)
-        outputs = self.o_proj(outputs.permute(0, 2, 1, 3).reshape(batch_size, length, self.embed_dim))
+        outputs = self.o_proj(outputs.permute(0, 2, 1, 3).reshape(
+            batch_size, length, self.embed_dim))
         outputs = self.layer_norm(self.dropout(outputs) + x)
         if return_attention:
             return outputs, attention

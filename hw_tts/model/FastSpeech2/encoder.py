@@ -29,7 +29,8 @@ class Encoder(nn.Module):
             num_heads=kwargs["encoder_head"],
             fft_conv1d_kernel=kwargs["fft_conv1d_kernel"],
             fft_conv1d_padding=kwargs["fft_conv1d_padding"],
-            dropout=kwargs["dropout"]
+            dropout=kwargs["dropout"],
+            attn_use_prelayer_norm=kwargs["attn_use_prelayer_norm"]
         ) for _ in range(kwargs["encoder_n_layer"])])
 
     def forward(self, src_seq, src_pos):

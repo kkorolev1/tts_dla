@@ -35,7 +35,8 @@
       "num_mels": 80,
       "pitch_predictor_filter_size": 256,
       "pitch_predictor_kernel_size": 3,
-      "vocab_size": 300
+      "vocab_size": 300,
+      "attn_use_prelayer_norm": false
     }
   },
   "data": {},
@@ -58,6 +59,53 @@
     "type": "FastSpeech2Loss",
     "args": {}
   },
+  "parameters_list": [
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      1.2,
+      1,
+      1
+    ],
+    [
+      0.8,
+      1,
+      1
+    ],
+    [
+      1,
+      1.2,
+      1
+    ],
+    [
+      1,
+      0.8,
+      1
+    ],
+    [
+      1,
+      1,
+      1.2
+    ],
+    [
+      1,
+      1,
+      0.8
+    ],
+    [
+      1.2,
+      1.2,
+      1.2
+    ],
+    [
+      0.8,
+      0.8,
+      0.8
+    ]
+  ],
   "metrics": [],
   "trainer": {
     "epochs": 40,
