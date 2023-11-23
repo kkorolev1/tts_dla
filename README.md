@@ -4,6 +4,15 @@ Implementation of a TTS pipeline using Fastspeech2 model trained on a LJSpeech d
 
 [WanDB Report](https://wandb.ai/kkorolev/tts_project/reports/HW3-TTS--Vmlldzo2MDQ1MTg5)
 
+## Checkpoints
+- [First model checkpoint](https://disk.yandex.ru/d/qQx-LW21qd17Xg)
+- [Second model checkpoint](https://disk.yandex.ru/d/cW4s6OLS12KyjA)
+
+The first model was trained with the following configuration: batch size=20, batch expand size=24, AdamW with warmup, max_lr=5e-4, len_epoch=3000, num_epochs=40, grad_norm_clip=2.
+
+The second model uses pre layer norm in attention. It was trained with batch size=64, max_lr=1e-3. Initialization in MultiHead Attention was replaced on xavier uniform. All other configuration parameters are the same.
+To use model with or without prelayer norm, add `"attn_use_prelayer_norm": true/false` to model's config.
+
 ## Installation guide
 
 ```shell
