@@ -36,7 +36,7 @@
       "pitch_predictor_filter_size": 256,
       "pitch_predictor_kernel_size": 3,
       "vocab_size": 300,
-      "attn_use_prelayer_norm": false
+      "attn_use_prelayer_norm": true
     }
   },
   "data": {},
