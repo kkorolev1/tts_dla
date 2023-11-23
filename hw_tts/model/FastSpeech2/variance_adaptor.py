@@ -11,9 +11,10 @@ class VarianceAdaptor(nn.Module):
         super().__init__()
 
         self.length_regulator = LengthRegulator(**kwargs)
-        
+
         # we estimane pitch_target + 1, so we add +1 to bounds
-        pitch_space = torch.linspace(np.log(kwargs["min_pitch"] + 1), np.log(kwargs["max_pitch"] + 2), kwargs["num_bins"])
+        pitch_space = torch.linspace(np.log(
+            kwargs["min_pitch"] + 1), np.log(kwargs["max_pitch"] + 2), kwargs["num_bins"])
         self.register_buffer('pitch_space', pitch_space)
         self.pitch_predictor = ScalarPredictor(
             embed_dim=kwargs["encoder_dim"],
@@ -21,10 +22,12 @@ class VarianceAdaptor(nn.Module):
             predictor_kernel_size=kwargs["pitch_predictor_kernel_size"],
             dropout=kwargs["dropout"]
         )
-        self.pitch_embedding = nn.Embedding(kwargs["num_bins"], kwargs["encoder_dim"])
-        
+        self.pitch_embedding = nn.Embedding(
+            kwargs["num_bins"], kwargs["encoder_dim"])
+
         # we estimane energy_target + 1, so we add +1 to bounds
-        energy_space = torch.linspace(np.log(kwargs["min_energy"] + 1), np.log(kwargs["max_energy"] + 2), kwargs["num_bins"])
+        energy_space = torch.linspace(np.log(
+            kwargs["min_energy"] + 1), np.log(kwargs["max_energy"] + 2), kwargs["num_bins"])
         self.register_buffer('energy_space', energy_space)
         self.energy_predictor = ScalarPredictor(
             embed_dim=kwargs["encoder_dim"],
@@ -32,17 +35,21 @@ class VarianceAdaptor(nn.Module):
             predictor_kernel_size=kwargs["energy_predictor_kernel_size"],
             dropout=kwargs["dropout"]
         )
-        self.energy_embedding = nn.Embedding(kwargs["num_bins"], kwargs["encoder_dim"])
+        self.energy_embedding = nn.Embedding(
+            kwargs["num_bins"], kwargs["encoder_dim"])
 
     def energy(self, len_reg_output, energy_target=None, gamma=1.0):
         energy_pred = self.energy_predictor(len_reg_output)
         # we estimate energy_target + 1 to avoid nans
         if energy_target is not None:
-            buckets = torch.bucketize(torch.log(energy_target + 1), self.energy_space)
+            buckets = torch.bucketize(
+                torch.log(energy_target + 1), self.energy_space)
         else:
-            estimated_energy = torch.exp(energy_pred) - 1 # (energy_target + 1) - 1
-            estimated_energy = estimated_energy * gamma # energy_target * gamma
-            buckets = torch.bucketize(torch.log(estimated_energy + 1), self.energy_space)
+            estimated_energy = torch.exp(
+                energy_pred) - 1  # (energy_target + 1) - 1
+            estimated_energy = estimated_energy * gamma  # energy_target * gamma
+            buckets = torch.clip(torch.bucketize(
+                torch.log(estimated_energy + 1), self.energy_space), 0, self.energy_embedding.num_embeddings - 1)
         energy_emb = self.energy_embedding(buckets)
         return energy_emb, energy_pred
 
@@ -50,11 +57,14 @@ class VarianceAdaptor(nn.Module):
         pitch_pred = self.pitch_predictor(len_reg_output)
         # we estimate pitch_target + 1 to avoid nans
         if pitch_target is not None:
-            buckets = torch.bucketize(torch.log(pitch_target + 1), self.pitch_space)
+            buckets = torch.bucketize(
+                torch.log(pitch_target + 1), self.pitch_space)
         else:
-            estimated_pitch = torch.exp(pitch_pred) - 1 # (pitch_target + 1) - 1
-            estimated_pitch = estimated_pitch * beta # pitch_target * beta
-            buckets = torch.bucketize(torch.log(estimated_pitch + 1), self.pitch_space)
+            estimated_pitch = torch.exp(
+                pitch_pred) - 1  # (pitch_target + 1) - 1
+            estimated_pitch = estimated_pitch * beta  # pitch_target * beta
+            buckets = torch.clip(torch.bucketize(torch.log(
+                estimated_pitch + 1), self.pitch_space), 0, self.pitch_embedding.num_embeddings - 1)
         pitch_emb = self.pitch_embedding(buckets)
         return pitch_emb, pitch_pred
 
@@ -85,7 +95,6 @@ class VarianceAdaptor(nn.Module):
         energy_emb = self.energy(len_reg_output, gamma=gamma)[0]
         output = len_reg_output + pitch_emb + energy_emb
         return {
-           "output": output,
-           "mel_pos": mel_pos 
+            "output": output,
+            "mel_pos": mel_pos
         }
-        
