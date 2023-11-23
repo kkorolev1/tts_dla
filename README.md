@@ -4,6 +4,8 @@ Implementation of a TTS pipeline using Fastspeech2 model trained on a LJSpeech d
 
 [WanDB Report](https://wandb.ai/kkorolev/tts_project/reports/HW3-TTS--Vmlldzo2MDQ1MTg5)
 
+See the results of both models at the end of this README.
+
 ## Checkpoints
 - [First model checkpoint](https://disk.yandex.ru/d/qQx-LW21qd17Xg)
 - [Second model checkpoint](https://disk.yandex.ru/d/cW4s6OLS12KyjA)
