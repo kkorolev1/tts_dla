@@ -12,7 +12,6 @@ class VarianceAdaptor(nn.Module):
 
         self.length_regulator = LengthRegulator(**kwargs)
 
-        # we estimane pitch_target + 1, so we add +1 to bounds
         pitch_space = torch.linspace(np.log(
             kwargs["min_pitch"] + 1), np.log(kwargs["max_pitch"] + 2), kwargs["num_bins"])
         self.register_buffer('pitch_space', pitch_space)
@@ -25,7 +24,6 @@ class VarianceAdaptor(nn.Module):
         self.pitch_embedding = nn.Embedding(
             kwargs["num_bins"], kwargs["encoder_dim"])
 
-        # we estimane energy_target + 1, so we add +1 to bounds
         energy_space = torch.linspace(np.log(
             kwargs["min_energy"] + 1), np.log(kwargs["max_energy"] + 2), kwargs["num_bins"])
         self.register_buffer('energy_space', energy_space)
@@ -40,14 +38,13 @@ class VarianceAdaptor(nn.Module):
 
     def energy(self, len_reg_output, energy_target=None, gamma=1.0):
         energy_pred = self.energy_predictor(len_reg_output)
-        # we estimate energy_target + 1 to avoid nans
         if energy_target is not None:
             buckets = torch.bucketize(
                 torch.log(energy_target + 1), self.energy_space)
         else:
             estimated_energy = torch.exp(
-                energy_pred) - 1  # (energy_target + 1) - 1
-            estimated_energy = estimated_energy * gamma  # energy_target * gamma
+                energy_pred) - 1 
+            estimated_energy = estimated_energy * gamma
             buckets = torch.clip(torch.bucketize(
                 torch.log(estimated_energy + 1), self.energy_space), 0, self.energy_embedding.num_embeddings - 1)
         energy_emb = self.energy_embedding(buckets)
@@ -55,14 +52,13 @@ class VarianceAdaptor(nn.Module):
 
     def pitch(self, len_reg_output, pitch_target=None, beta=1.0):
         pitch_pred = self.pitch_predictor(len_reg_output)
-        # we estimate pitch_target + 1 to avoid nans
         if pitch_target is not None:
             buckets = torch.bucketize(
                 torch.log(pitch_target + 1), self.pitch_space)
         else:
             estimated_pitch = torch.exp(
-                pitch_pred) - 1  # (pitch_target + 1) - 1
-            estimated_pitch = estimated_pitch * beta  # pitch_target * beta
+                pitch_pred) - 1
+            estimated_pitch = estimated_pitch * beta 
             buckets = torch.clip(torch.bucketize(torch.log(
                 estimated_pitch + 1), self.pitch_space), 0, self.pitch_embedding.num_embeddings - 1)
         pitch_emb = self.pitch_embedding(buckets)
