@@ -3,6 +3,7 @@ from pathlib import Path
 import torch
 import torchaudio
 from tqdm.auto import tqdm
+import os
 import pyworld as pw
 from scipy.interpolate import interp1d
 
@@ -11,55 +12,49 @@ def setup_energy(data_dir):
     """
     Setup energy from LJSpeech mel spectrograms
     """
-    save_dir = data_dir / "data" / "energy"
-    mel_dir = data_dir / "data" / "mels"
-    save_dir.mkdir(exist_ok=True, parents=True)
+    mels_dir = os.path.join(data_dir, "mels")
+    output_dir = os.path.join(data_dir, "energy")
+    os.makedirs(output_dir, exist_ok=True)
 
-    assert mel_dir.exists(), "Mel dir not found, download data first"
+    min_energy = float("inf")
+    max_energy = float("-inf")
 
-    min_energy = 1e10
-    max_energy = -1e10
-
-    for fpath in mel_dir.iterdir():
-        mel = np.load(fpath)
-        # energy is L2-norm of mel spec rows
-        energy = np.linalg.norm(mel, axis=-1)
-        new_name = fpath.name.replace("mel", "energy")
-        np.save(save_dir / new_name, energy)     
+    for mel_filename in tqdm(os.listdir(mels_dir), desc="Processing energy"):
+        # energy is L2-norm of mel spec columns
+        energy = np.linalg.norm(
+            np.load(os.path.join(mels_dir, mel_filename)), axis=-1)
+        energy_filename = mel_filename.replace("mel", "energy")
+        np.save(os.path.join(output_dir, energy_filename), energy)
         min_energy = min(min_energy, energy.min())
         max_energy = max(max_energy, energy.max())
 
-    print("min energy:", min_energy, "max energy:", max_energy)
+    print("min energy:", min_energy)
+    print("max energy:", max_energy)
 
 
 def setup_pitch(data_dir):
     """
     Setup pitch from LJSpeech wavs and mels
     """
-    wav_dir = data_dir / "data" / "LJSpeech-1.1" / "wavs"
-    mel_dir = data_dir / "data" / "mels"
-    save_dir = data_dir / "data" / "pitch"
-    save_dir.mkdir(exist_ok=True, parents=True)
+    mels_dir = os.path.join(data_dir, "mels")
+    wavs_dir = os.path.join(data_dir, "LJSpeech-1.1", "wavs")
+    output_dir = os.path.join(data_dir, "pitch")
+    os.makedirs(output_dir, exist_ok=True)
 
-    assert wav_dir.exists(), "Wav dir not found, download data first"
-    
-    names = []
-    for fpath in wav_dir.iterdir():
-        names.append(fpath.name)
+    filename_to_id = {filename: i for i, filename in enumerate(
+        sorted(os.listdir(wavs_dir)), 1)}
 
-    names_dict = {name: i for i, name in enumerate(sorted(names))}
+    min_pitch = float("inf")
+    max_pitch = float("-inf")
 
-    min_pitch = 1e10
-    max_pitch = 1e-10
+    for wav_filename in tqdm(sorted(os.listdir(wavs_dir)[:1]), desc="Processing pitch"):
+        id = filename_to_id[wav_filename]
+        pitch_filename = "ljspeech-pitch-{:05d}.npy".format(id)
+        mel_filename = "ljspeech-mel-{:05d}.npy".format(id)
 
-    for fpath in tqdm(wav_dir.iterdir(), total=len(names)):
-        real_i = names_dict[fpath.name]
-        new_name = "ljspeech-pitch-%05d.npy" % (real_i+1)
-        mel_name = "ljspeech-mel-%05d.npy" % (real_i+1)
+        mel = np.load(os.path.join(mels_dir, mel_filename))
 
-        mel = np.load(mel_dir / mel_name)
-
-        audio, sr = torchaudio.load(fpath)
+        audio, sr = torchaudio.load(os.path.join(wavs_dir, wav_filename))
         audio = audio.to(torch.float64).numpy().sum(axis=0)
 
         # from audio Hz to mel hz
@@ -76,18 +71,20 @@ def setup_pitch(data_dir):
         values = (f0[nonzeros][0], f0[nonzeros][-1])
         f = interp1d(x, f0[nonzeros], bounds_error=False, fill_value=values)
 
-        new_f0 = f(np.arange(f0.shape[0]))
+        pitch_contour = f(np.arange(f0.shape[0]))
 
-        np.save(save_dir / new_name, new_f0)
+        np.save(os.path.join(output_dir, pitch_filename), pitch_contour)
 
-        min_pitch = min(min_pitch, new_f0.min())
-        max_pitch = max(max_pitch, new_f0.max())
+        min_pitch = min(min_pitch, pitch_contour.min())
+        max_pitch = max(max_pitch, pitch_contour.max())
 
-    print("min pitch:", min_pitch, "max pitch:", max_pitch)
+    print("min pitch:", min_pitch)
+    print("max pitch:", max_pitch)
+
 
 if __name__ == "__main__":
-    data_dir = Path(".")
-    
+    data_dir = "data"
+
     print("Setup energy")
     setup_energy(data_dir)
 
